@@ -1,0 +1,26 @@
+{
+  "name": "slack-leaderboard",
+  "version": "1.0.0",
+  "description": "Leaderboard of the top slackaholics in Hack Club :D",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jeremy46231/slack-leaderboard.git"
+  },
+  "author": "jeremy46231",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/jeremy46231/slack-leaderboard/issues"
+  },
+  "homepage": "https://github.com/jeremy46231/slack-leaderboard#readme",
+  "dependencies": {
+    "@prisma/client": "^5.21.1",
+    "@slack/bolt": "^4.0.0",
+    "prisma": "^5.21.1",
+    "temporal-polyfill": "^0.2.5"
+  }
+}

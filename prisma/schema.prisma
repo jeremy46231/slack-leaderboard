@@ -1,0 +1,26 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model UserDay {
+  id                         Int      @id @default(autoincrement())
+  user_id                    String
+  date                       DateTime @db.Date
+  is_active                  Boolean
+  is_desktop                 Boolean
+  is_ios                     Boolean
+  is_android                 Boolean
+  messages_posted            Int
+  messages_posted_in_channel Int
+  reactions_added            Int
+
+  @@index([user_id])
+}
