@@ -20,7 +20,6 @@
   "dependencies": {
     "@prisma/client": "^5.21.1",
     "@slack/bolt": "^4.0.0",
-    "prisma": "^5.21.1",
     "temporal-polyfill": "^0.2.5"
   }
 }

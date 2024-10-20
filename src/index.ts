@@ -1,11 +1,4 @@
-import { App as SlackApp } from '@slack/bolt'
-
-const app = new SlackApp({
-  token: process.env.SLACK_BOT_TOKEN,
-  signingSecret: process.env.SLACK_SIGNING_SECRET,
-  appToken: process.env.SLACK_APP_TOKEN,
-  socketMode: true,
-})
+import { app } from "./slack/app"
 
 // Listen for users opening your App Home
 app.event('app_home_opened', async ({ event, client }) => {
@@ -36,5 +29,3 @@ app.event('app_home_opened', async ({ event, client }) => {
   console.log('Published app home for user', event.user)
 })
 
-await app.start()
-console.log('⚡️ Bolt app is running!')

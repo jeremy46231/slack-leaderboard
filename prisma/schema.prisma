@@ -1,13 +1,13 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// https://pris.ly/d/prisma-schema
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider          = "postgresql"
+  url               = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
 }
 
 model UserDay {
@@ -22,5 +22,35 @@ model UserDay {
   messages_posted_in_channel Int
   reactions_added            Int
 
+  user User? @relation(fields: [user_id], references: [user_id])
+
   @@index([user_id])
+}
+
+model User {
+  user_id         String  @id
+  display_name    String?
+  real_name       String?
+  profile_picture String?
+  pronouns        String?
+
+  title           String?
+  phone           String?
+  location        String?
+  school          String?
+  birthday        String?
+  website_url     String?
+  scrapbook_url   String?
+  github_url      String?
+  ham_callsign    String?
+  matrix_username String?
+
+  favorite_channels   String?
+  favorite_foods      String?
+  favorite_artists    String?
+  favorite_activities String?
+  favorite_tools      String?
+  dog_cat_infra       String?
+
+  UserDay UserDay[]
 }
