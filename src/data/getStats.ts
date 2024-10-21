@@ -1,7 +1,12 @@
 import { Temporal } from 'temporal-polyfill'
 import { getAvailableDates, getRangeStats } from '../slack/userAPI.ts'
 import { db } from './database.ts'
-import { runThreaded } from '../helpers.ts'
+import {
+  daysGenerator,
+  jsDateToPlainDate,
+  plainDateToString,
+  runThreaded,
+} from '../helpers.ts'
 import { getUserProfile } from '../slack/botAPI.ts'
 
 export type userDay = {
@@ -32,20 +37,29 @@ export async function getDayStats(day: Temporal.PlainDate): Promise<userDay[]> {
   return converted
 }
 
-function* daysGenerator(
-  startDate: Temporal.PlainDate,
-  endDate: Temporal.PlainDate
-) {
-  if (Temporal.PlainDate.compare(startDate, endDate) > 0) {
-    throw new Error('Start date is after end date')
+export async function ensureUsersInDatabase(userIDs: string[]) {
+  // Find the user IDs that are missing from the database
+  const createMissingResult = await db.user.createManyAndReturn({
+    data: userIDs.map((user_id) => ({ user_id })),
+    skipDuplicates: true,
+    // select: { user_id: true },
+  })
+  console.log(JSON.stringify(createMissingResult))
+  const missingIDs = createMissingResult.map((user) => user.user_id)
+
+  // Get user profiles for missing IDs and add them to the database
+  let i = 0
+  for (const missingID of missingIDs) {
+    const user = await getUserProfile(missingID)
+    await db.user.upsert({
+      where: { user_id: user.user_id },
+      create: user,
+      update: user,
+    })
+    console.log(`    Fetched new user ${++i}/${missingIDs.length}`)
   }
-  for (
-    let date = startDate;
-    Temporal.PlainDate.compare(date, endDate) <= 0;
-    date = date.add({ days: 1 })
-  ) {
-    yield date
-  }
+
+  return missingIDs
 }
 
 export async function getStats(
@@ -53,68 +67,95 @@ export async function getStats(
   endDate: Temporal.PlainDate,
   threadCount = 5
 ) {
-  const stats: userDay[] = []
-  const userIDs = new Set<string>()
+  // Make sure that records exist for all days in the range
+  await db.day.createMany({
+    data: [...daysGenerator(startDate, endDate)].map((date) => ({
+      date: plainDateToString(date),
+    })),
+    skipDuplicates: true,
+  })
+  // Get all days that have not been loaded yet
+  const missingDaysResult = await db.day.findMany({
+    where: {
+      date: {
+        gte: plainDateToString(startDate),
+        lte: plainDateToString(endDate),
+      },
+      user_day_loaded: false,
+    },
+    select: { date: true },
+  })
+  const missingDays = missingDaysResult.map((day) =>
+    jsDateToPlainDate(day.date)
+  )
 
-  const days = daysGenerator(startDate, endDate)
-  const totalDays = startDate.until(endDate).total({ unit: 'days' }) + 1
+  let newStats = 0
+  let newUsers = 0
 
+  // Start 5 threads to fetch the missing days
   await runThreaded(
-    days,
-    totalDays,
+    missingDays,
+    missingDays.length,
     threadCount,
     async (day) => {
+      // Get the stats for the day
       const dayStats = await getDayStats(day)
+      newStats += dayStats.length
 
-      stats.push(...dayStats)
-      dayStats.forEach((day) => userIDs.add(day.user_id))
+      // Ensure that all users are in the database
+      const userIDs = [...new Set(dayStats.map((day) => day.user_id)).values()]
+      const addedIDs = await ensureUsersInDatabase(userIDs)
+      newUsers += addedIDs.length
+
+      // Add the stats to the database
+      await db.day.update({
+        where: {
+          date: plainDateToString(day),
+        },
+        data: {
+          user_day_loaded: true,
+          UserDay: {
+            createMany: {
+              data: dayStats.map((stat) => ({
+                user_id: stat.user_id,
+                is_active: stat.is_active,
+                is_desktop: stat.is_desktop,
+                is_ios: stat.is_ios,
+                is_android: stat.is_android,
+                messages_posted: stat.messages_posted,
+                messages_posted_in_channel: stat.messages_posted_in_channel,
+                reactions_added: stat.reactions_added,
+              })),
+            },
+          },
+        },
+      })
     }
   )
 
-
-  const newUserIDsResult = await db.$queryRaw<Array<{ user_id: string }>>`
-    WITH provided_ids AS (
-      SELECT unnest(array[${[...userIDs.values()]}]) AS user_id
-    )
-    SELECT user_id 
-    FROM provided_ids
-    WHERE user_id NOT IN (SELECT user_id FROM "User")`
-
-  const newUserIDs = newUserIDsResult.map((user) => ({ user_id: user.user_id }))
-
-  if (newUserIDs.length > 0) {
-    console.log(`Found ${newUserIDs.length} new users, fetching profiles...`)
-
-    await runThreaded(
-      newUserIDs.values(),
-      newUserIDs.length,
-      threadCount,
-      async (user) => {
-        const profile = await getUserProfile(user.user_id)
-        await db.user.create({
-          data: profile,
-        })
-      }
-    )
-
-    console.log('Finished fetching profiles')
-  }
-
-  console.log('Adding stats to database...')
-
-  await db.userDay.createMany({
-    data: stats.map((stat) => ({
-      ...stat,
-      date: stat.date.toZonedDateTime('UTC').toInstant().toString(),
-    })),
-  })
-
-  console.log('Finished adding stats to database')
+  console.log(
+    `Added ${newStats} new records over ${missingDays.length} days and fetched ${newUsers} new users`
+  )
 }
 
-const availibleDates = await getAvailableDates()
-const end = availibleDates.end_date
-const start = end.subtract({ days: 29 })
-console.log(`Fetching stats from ${start} to ${end}`)
-const stats = await getStats(start, end)
+export async function mostRecentStatDate() {
+  const mostRecent = await db.day.findFirst({
+    orderBy: { date: 'desc' },
+    select: { date: true },
+  })
+  if (!mostRecent) {
+    throw new Error('No stats in the database')
+  }
+  return jsDateToPlainDate(mostRecent.date)
+}
 
+export async function updateStats() {
+  const availableDates = await getAvailableDates()
+  await getStats(availableDates.start_date, availableDates.end_date)
+}
+
+// const availableDates = await getAvailableDates()
+// const end = availableDates.end_date
+// const start = end.subtract({ days: 6 })
+// console.log(`Fetching stats from ${start} to ${end}`)
+// await getStats(start, end)

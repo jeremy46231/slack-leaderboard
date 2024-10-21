@@ -8,4 +8,8 @@ export const app = new SlackApp({
 })
 
 await app.start()
+const auth = await app.client.auth.test()
+if (!auth.ok) {
+  throw new Error('Failed to authenticate with Slack')
+}
 console.log('⚡️ Bolt app is running!')

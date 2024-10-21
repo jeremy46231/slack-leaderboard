@@ -1,4 +1,12 @@
 -- CreateTable
+CREATE TABLE "Day" (
+    "date" DATE NOT NULL,
+    "user_day_loaded" BOOLEAN NOT NULL DEFAULT false,
+
+    CONSTRAINT "Day_pkey" PRIMARY KEY ("date")
+);
+
+-- CreateTable
 CREATE TABLE "UserDay" (
     "id" SERIAL NOT NULL,
     "user_id" TEXT NOT NULL,
@@ -46,3 +54,6 @@ CREATE INDEX "UserDay_user_id_idx" ON "UserDay"("user_id");
 
 -- AddForeignKey
 ALTER TABLE "UserDay" ADD CONSTRAINT "UserDay_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "User"("user_id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "UserDay" ADD CONSTRAINT "UserDay_date_fkey" FOREIGN KEY ("date") REFERENCES "Day"("date") ON DELETE RESTRICT ON UPDATE CASCADE;

@@ -1,5 +1,7 @@
+import { Temporal } from 'temporal-polyfill'
+
 export async function runThreaded<T extends unknown>(
-  items: Generator<T, void, unknown> | Iterable<T>,
+  items: Iterable<T>,
   total: number,
   threadCount: number,
   callback: (item: T) => Promise<void>
@@ -16,7 +18,9 @@ export async function runThreaded<T extends unknown>(
       const percentString = ((completed / total) * 100).toFixed(1).padStart(5)
       const totalString = total.toFixed()
       const completeString = completed.toFixed().padStart(totalString.length)
-      console.log(`${percentString}% (${completeString}/${totalString}) complete`)
+      console.log(
+        `${percentString}% (${completeString}/${totalString}) complete`
+      )
 
       current = iterator.next()
     }
@@ -24,4 +28,29 @@ export async function runThreaded<T extends unknown>(
 
   const threads = Array.from({ length: threadCount }, (_, i) => thread())
   await Promise.all(threads)
+}
+
+export function* daysGenerator(
+  startDate: Temporal.PlainDate,
+  endDate: Temporal.PlainDate
+) {
+  if (Temporal.PlainDate.compare(startDate, endDate) > 0) {
+    throw new Error('Start date is after end date')
+  }
+  for (
+    let date = startDate;
+    Temporal.PlainDate.compare(date, endDate) <= 0;
+    date = date.add({ days: 1 })
+  ) {
+    yield date
+  }
+}
+
+export function plainDateToString(date: Temporal.PlainDate) {
+  return date.toZonedDateTime('UTC').toInstant().toString()
+}
+export function jsDateToPlainDate(date: Date) {
+  return Temporal.Instant.fromEpochMilliseconds(date.getTime())
+    .toZonedDateTimeISO('UTC')
+    .toPlainDate()
 }

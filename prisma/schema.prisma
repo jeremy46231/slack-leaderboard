@@ -10,25 +10,35 @@ datasource db {
   shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
 }
 
+model Day {
+  date            DateTime  @id @db.Date
+  user_day_loaded Boolean   @default(false)
+  UserDay         UserDay[]
+}
+
 model UserDay {
-  id                         Int      @id @default(autoincrement())
-  user_id                    String
-  date                       DateTime @db.Date
-  is_active                  Boolean
-  is_desktop                 Boolean
-  is_ios                     Boolean
-  is_android                 Boolean
+  id      Int      @id @default(autoincrement())
+  user_id String
+  date    DateTime @db.Date
+
+  is_active  Boolean
+  is_desktop Boolean
+  is_ios     Boolean
+  is_android Boolean
+
   messages_posted            Int
   messages_posted_in_channel Int
   reactions_added            Int
 
-  user User? @relation(fields: [user_id], references: [user_id])
+  user User @relation(fields: [user_id], references: [user_id])
+  day  Day  @relation(fields: [date], references: [date])
 
   @@index([user_id])
 }
 
 model User {
-  user_id         String  @id
+  user_id String @id
+
   display_name    String?
   real_name       String?
   profile_picture String?
