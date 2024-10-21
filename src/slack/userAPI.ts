@@ -1,3 +1,4 @@
+import { backOff } from 'exponential-backoff'
 import { Temporal } from 'temporal-polyfill'
 
 const slackCookie = process.env.SLACK_USER_COOKIE!
@@ -8,7 +9,7 @@ if (!slackCookie || !userToken || !slackDomain) {
   throw new Error('Missing required environment variables for scraping stats')
 }
 
-export async function slackBrowserAPI(
+async function plainSlackBrowserAPI(
   method: string,
   params: [name: string, value: string][]
 ) {
@@ -40,6 +41,18 @@ export async function slackBrowserAPI(
   }
 
   return json
+}
+
+export async function slackBrowserAPI(
+  method: string,
+  params: [name: string, value: string][]
+) {
+  const response = await backOff(() => plainSlackBrowserAPI(method, params), {
+    numOfAttempts: 50, // if it doesn't cool off after 20 minutes, it's not going to
+    startingDelay: 500,
+    maxDelay: 30_000,
+  })
+  return response
 }
 
 type StatsAPIResponse = {

@@ -44,7 +44,6 @@ export async function ensureUsersInDatabase(userIDs: string[]) {
     skipDuplicates: true,
     // select: { user_id: true },
   })
-  console.log(JSON.stringify(createMissingResult))
   const missingIDs = createMissingResult.map((user) => user.user_id)
 
   // Get user profiles for missing IDs and add them to the database
