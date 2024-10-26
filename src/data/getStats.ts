@@ -1,5 +1,5 @@
 import { Temporal } from 'temporal-polyfill'
-import { getAvailableDates, getRangeStats } from '../slack/userAPI.ts'
+import { getAvailableDates, getRangeStats } from '../slackAPI/userAPI.ts'
 import { db } from './database.ts'
 import {
   daysGenerator,
@@ -7,7 +7,7 @@ import {
   plainDateToString,
   runThreaded,
 } from '../helpers.ts'
-import { getUserProfile } from '../slack/botAPI.ts'
+import { getUserProfile } from '../slackAPI/botAPI.ts'
 
 export type userDay = {
   user_id: string
@@ -137,24 +137,7 @@ export async function getStats(
   )
 }
 
-export async function mostRecentStatDate() {
-  const mostRecent = await db.day.findFirst({
-    orderBy: { date: 'desc' },
-    select: { date: true },
-  })
-  if (!mostRecent) {
-    throw new Error('No stats in the database')
-  }
-  return jsDateToPlainDate(mostRecent.date)
-}
-
 export async function updateStats() {
   const availableDates = await getAvailableDates()
   await getStats(availableDates.start_date, availableDates.end_date)
 }
-
-// const availableDates = await getAvailableDates()
-// const end = availableDates.end_date
-// const start = end.subtract({ days: 6 })
-// console.log(`Fetching stats from ${start} to ${end}`)
-// await getStats(start, end)
