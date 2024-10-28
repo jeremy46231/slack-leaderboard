@@ -1,4 +1,8 @@
+import type { Middleware, SlackEventMiddlewareArgs, StringIndexed } from '@slack/bolt'
 import { Temporal } from 'temporal-polyfill'
+
+export type middlewareArguments<type extends string> = Parameters<Middleware<SlackEventMiddlewareArgs<type>, StringIndexed>>[0]
+export type AnyBlock = Parameters<typeof import('./slackAPI/app.ts').app.client.views.publish>[0]['view']['blocks'][0]
 
 export async function runThreaded<T extends unknown>(
   items: Iterable<T>,
