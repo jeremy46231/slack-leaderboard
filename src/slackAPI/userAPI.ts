@@ -110,14 +110,14 @@ export async function getRangeStats(
   endDate: Temporal.PlainDate,
   maxResults = 5000
 ) {
-  const json = await slackBrowserAPI('admin.analytics.getMemberAnalytics', [
+  const json = (await slackBrowserAPI('admin.analytics.getMemberAnalytics', [
     ['token', userToken],
     ['start_date', startDate.toString()],
     ['end_date', endDate.toString()],
     ['count', maxResults.toFixed()],
     ['sort_column', 'messages_posted'],
     ['sort_direction', 'desc'],
-  ]) as StatsAPIResponse
+  ])) as StatsAPIResponse
 
   const active = json.member_activity
     .filter(
@@ -142,9 +142,9 @@ export async function getRangeStats(
 }
 
 export async function getAvailableDates() {
-  const json = await slackBrowserAPI('admin.analytics.getAvailableDateRange', [
+  const json = (await slackBrowserAPI('admin.analytics.getAvailableDateRange', [
     ['type', 'member'],
-  ]) as {
+  ])) as {
     ok: boolean
     start_date: string
     end_date: string
@@ -155,7 +155,11 @@ export async function getAvailableDates() {
   return {
     start_date: Temporal.PlainDate.from(json.start_date),
     end_date: Temporal.PlainDate.from(json.end_date),
-    date_last_updated: Temporal.Instant.fromEpochMilliseconds(json.date_last_updated * 1000),
-    date_last_indexed: Temporal.Instant.fromEpochMilliseconds(json.date_last_indexed * 1000),
+    date_last_updated: Temporal.Instant.fromEpochMilliseconds(
+      json.date_last_updated * 1000
+    ),
+    date_last_indexed: Temporal.Instant.fromEpochMilliseconds(
+      json.date_last_indexed * 1000
+    ),
   }
 }

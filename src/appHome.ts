@@ -73,7 +73,6 @@ async function generateLeaderboard(state: state, userID: string) {
     ],
   })
 
-
   blocks.push({
     type: 'rich_text',
     elements: [
@@ -174,10 +173,7 @@ async function generateHome(state: state, userID: string) {
     type: 'divider',
   })
 
-  const dayLeaderboard = await generateLeaderboard(
-    state,
-    userID
-  )
+  const dayLeaderboard = await generateLeaderboard(state, userID)
   blocks.push(...dayLeaderboard)
 
   return {
