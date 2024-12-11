@@ -1,9 +1,9 @@
 import { backOff } from 'exponential-backoff'
 import { Temporal } from 'temporal-polyfill'
 
-const slackCookie = process.env.SLACK_USER_COOKIE!
-const userToken = process.env.SLACK_USER_TOKEN!
-const slackDomain = process.env.SLACK_DOMAIN!
+const slackCookie = process.env['SLACK_USER_COOKIE']!
+const userToken = process.env['SLACK_USER_TOKEN']!
+const slackDomain = process.env['SLACK_DOMAIN']!
 
 if (!slackCookie || !userToken || !slackDomain) {
   throw new Error('Missing required environment variables for scraping stats')
@@ -30,14 +30,14 @@ async function plainSlackBrowserAPI(
   if (!response.ok) {
     try {
       const text = await response.text()
-      console.error('Failed to fetch Slack API:', response.status, text)
+      console.error('Failed to fetch Slack API, fail text:', response.status, text)
     } catch {}
-    throw new Error('Failed to fetch Slack API: ' + response.statusText)
+    throw new Error('Failed to fetch Slack API, fail: ' + response.statusText)
   }
   const json = (await response.json()) as { ok: boolean } & Record<string, any>
   if (!json.ok) {
-    console.error('Failed to fetch Slack API:', json)
-    throw new Error('Failed to fetch Slack API: ' + JSON.stringify(json))
+    console.error('Failed to fetch Slack API, json:', json)
+    throw new Error('Failed to fetch Slack API, json: ' + JSON.stringify(json))
   }
 
   return json
@@ -108,7 +108,7 @@ type StatsAPIResponse = {
 export async function getRangeStats(
   startDate: Temporal.PlainDate,
   endDate: Temporal.PlainDate,
-  maxResults = 5000
+  maxResults = 2000
 ) {
   const json = (await slackBrowserAPI('admin.analytics.getMemberAnalytics', [
     ['token', userToken],

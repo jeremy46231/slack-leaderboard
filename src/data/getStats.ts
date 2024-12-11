@@ -66,6 +66,8 @@ export async function getStats(
   endDate: Temporal.PlainDate,
   threadCount = 5
 ) {
+  console.log(`Fetching stats from ${startDate.toString()} to ${endDate.toString()}`)
+  
   // Make sure that records exist for all days in the range
   await db.day.createMany({
     data: [...daysGenerator(startDate, endDate)].map((date) => ({
@@ -88,10 +90,12 @@ export async function getStats(
     jsDateToPlainDate(day.date)
   )
 
+  console.log(`Fetching stats for ${missingDays.length} days`)
+
   let newStats = 0
   let newUsers = 0
 
-  // Start 5 threads to fetch the missing days
+  // Start threads to fetch the missing days
   await runThreaded(
     missingDays,
     missingDays.length,
