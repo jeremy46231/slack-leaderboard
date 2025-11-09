@@ -44,16 +44,25 @@ model User {
   profile_picture String?
   pronouns        String?
 
-  title           String?
-  phone           String?
-  location        String?
-  school          String?
-  birthday        String?
-  website_url     String?
-  scrapbook_url   String?
-  github_url      String?
-  ham_callsign    String?
-  matrix_username String?
+  title    String?
+  phone    String?
+  location String?
+  school   String?
+  birthday String?
+  manager  String[]
+
+  website_url            String?
+  website_url_alt        String?
+  scrapbook_url          String?
+  scrapbook_url_alt      String?
+  github_url             String?
+  github_url_alt         String?
+  ham_callsign           String?
+  matrix_username        String?
+  bluesky_url            String?
+  bluesky_url_alt        String?
+  social_account_url     String?
+  social_account_url_alt String?
 
   favorite_channels   String?
   favorite_foods      String?
@@ -61,6 +70,12 @@ model User {
   favorite_activities String?
   favorite_tools      String?
   dog_cat_infra       String?
+  pfp_credit          String?
+
+  gold_since String?
+  club_rank  String?
+
+  last_updated DateTime @default("1970-01-01T00:00:00Z") @db.Timestamptz
 
   UserDay UserDay[]
 }

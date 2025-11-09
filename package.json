@@ -18,10 +18,11 @@
   },
   "homepage": "https://github.com/jeremy46231/slack-leaderboard#readme",
   "dependencies": {
-    "@prisma/client": "^5.21.1",
-    "@slack/bolt": "^4.0.0",
+    "@prisma/client": "^6.19.0",
+    "@slack/bolt": "^4.6.0",
     "@types/react-reconciler": "^0.28.8",
     "exponential-backoff": "3.1.1",
+    "prisma": "^6.19.0",
     "react-reconciler": "^0.29.2",
     "temporal-polyfill": "^0.2.5"
   },

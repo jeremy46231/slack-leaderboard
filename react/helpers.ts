@@ -94,8 +94,8 @@ export function jsxToImageObject(jsx: Instance) {
   const source = !sourceString.startsWith('http')
     ? { slack_file: { id: sourceString } }
     : sourceString.startsWith('https://files.slack.com')
-    ? { slack_file: { url: sourceString } }
-    : { image_url: sourceString }
+      ? { slack_file: { url: sourceString } }
+      : { image_url: sourceString }
   return {
     type: 'image' as const,
     ...source,

@@ -4,7 +4,12 @@ import {
   type Instance,
   type TextInstance,
 } from './renderer.ts'
-import { assertNoChildren, getTextChild, jsxToImageObject, type Block } from './helpers.ts'
+import {
+  assertNoChildren,
+  getTextChild,
+  jsxToImageObject,
+  type Block,
+} from './helpers.ts'
 
 import './types.d.ts'
 import type { types as Slack } from '@slack/bolt'
@@ -56,7 +61,10 @@ function jsxToBlocks(jsx: Root): Block[] {
         type: 'video',
         alt_text: child.props.alt,
         author_name: child.props.author,
-        description: typeof child.props.description === 'string' ? { type: 'plain_text', text: child.props.description } : undefined,
+        description:
+          typeof child.props.description === 'string'
+            ? { type: 'plain_text', text: child.props.description }
+            : undefined,
         provider_icon_url: child.props.providerIcon,
         provider_name: child.props.providerName,
         title: { type: 'plain_text', text: child.props.title },
@@ -101,7 +109,6 @@ function jsxToBlocks(jsx: Root): Block[] {
       }
       return block
     }
-
 
     throw new Error(`Unsupported element type: ${child.type} ${child.element}`)
   })

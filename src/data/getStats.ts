@@ -49,11 +49,12 @@ export async function ensureUsersInDatabase(userIDs: string[]) {
   // Get user profiles for missing IDs and add them to the database
   let i = 0
   for (const missingID of missingIDs) {
-    const user = await getUserProfile(missingID)
+    const profile = await getUserProfile(missingID)
+
     await db.user.upsert({
-      where: { user_id: user.user_id },
-      create: user,
-      update: user,
+      where: { user_id: profile.user_id },
+      create: profile,
+      update: profile,
     })
     console.log(`    Fetched new user ${++i}/${missingIDs.length}`)
   }
@@ -141,3 +142,31 @@ export async function updateStats() {
   const availableDates = await getAvailableDates()
   await getStats(availableDates.start_date, availableDates.end_date)
 }
+
+export async function refreshOldUserProfiles() {
+  const oldUsers = await db.user.findMany({
+    where: {
+      last_updated: {
+        lt: new Date(1762595425175),
+      },
+    },
+    select: { user_id: true },
+  })
+
+  console.log(`Refreshing ${oldUsers.length} old user profiles...`)
+
+  let i = 0
+  for (const user of oldUsers) {
+    const profile = await getUserProfile(user.user_id)
+    await db.user.update({
+      where: { user_id: user.user_id },
+      data: profile,
+    })
+    console.log(`    Refreshed user ${++i}/${oldUsers.length}`)
+  }
+
+  console.log(`Completed refreshing ${oldUsers.length} user profiles`)
+  process.exit()
+}
+
+await refreshOldUserProfiles()

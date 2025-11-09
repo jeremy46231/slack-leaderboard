@@ -1,22 +1,40 @@
 import { backOff } from 'exponential-backoff'
 import { Temporal } from 'temporal-polyfill'
 
-const slackCookie = process.env.SLACK_USER_COOKIE!
-const userToken = process.env.SLACK_USER_TOKEN!
-const slackDomain = process.env.SLACK_DOMAIN!
-
-if (!slackCookie || !userToken || !slackDomain) {
-  throw new Error('Missing required environment variables for scraping stats')
+interface SlackAccount {
+  cookie: string
+  token: string
 }
+
+const slackDomain = process.env.SLACK_DOMAIN!
+const accounts = JSON.parse(process.env.SLACK_USER_ACCOUNTS!) as SlackAccount[]
+
+if (
+  !slackDomain ||
+  !accounts ||
+  !Array.isArray(accounts) ||
+  accounts.length === 0
+) {
+  throw new Error(
+    'Missing required environment variables: SLACK_DOMAIN and SLACK_USER_ACCOUNTS (must be a non-empty JSON array)'
+  )
+}
+
+let currentAccountIndex = 0
 
 async function plainSlackBrowserAPI(
   method: string,
-  params: [name: string, value: string][]
+  params: Record<string, string>
 ) {
+  // Round-robin: pick next account and increment counter
+  const accountIndex = currentAccountIndex
+  currentAccountIndex = (currentAccountIndex + 1) % accounts.length
+  const account = accounts[accountIndex]
+
   const url = new URL(`/api/${method}`, slackDomain)
   const formData = new FormData()
-  formData.set('token', userToken)
-  for (const [name, value] of params) {
+  formData.set('token', account.token)
+  for (const [name, value] of Object.entries(params)) {
     formData.set(name, value)
   }
 
@@ -24,7 +42,7 @@ async function plainSlackBrowserAPI(
     method: 'POST',
     body: formData,
     headers: {
-      Cookie: `d=${encodeURIComponent(slackCookie)}`,
+      Cookie: `d=${encodeURIComponent(account.cookie)}`,
     },
   })
   if (!response.ok) {
@@ -45,7 +63,7 @@ async function plainSlackBrowserAPI(
 
 export async function slackBrowserAPI(
   method: string,
-  params: [name: string, value: string][]
+  params: Record<string, string>
 ) {
   const response = await backOff(() => plainSlackBrowserAPI(method, params), {
     numOfAttempts: 50, // if it doesn't cool off after 20 minutes, it's not going to
@@ -110,14 +128,13 @@ export async function getRangeStats(
   endDate: Temporal.PlainDate,
   maxResults = 5000
 ) {
-  const json = await slackBrowserAPI('admin.analytics.getMemberAnalytics', [
-    ['token', userToken],
-    ['start_date', startDate.toString()],
-    ['end_date', endDate.toString()],
-    ['count', maxResults.toFixed()],
-    ['sort_column', 'messages_posted'],
-    ['sort_direction', 'desc'],
-  ]) as StatsAPIResponse
+  const json = (await slackBrowserAPI('admin.analytics.getMemberAnalytics', {
+    start_date: startDate.toString(),
+    end_date: endDate.toString(),
+    count: maxResults.toFixed(),
+    sort_column: 'messages_posted',
+    sort_direction: 'desc',
+  })) as StatsAPIResponse
 
   const active = json.member_activity
     .filter(
@@ -142,9 +159,9 @@ export async function getRangeStats(
 }
 
 export async function getAvailableDates() {
-  const json = await slackBrowserAPI('admin.analytics.getAvailableDateRange', [
-    ['type', 'member'],
-  ]) as {
+  const json = (await slackBrowserAPI('admin.analytics.getAvailableDateRange', {
+    type: 'member',
+  })) as {
     ok: boolean
     start_date: string
     end_date: string
@@ -155,7 +172,11 @@ export async function getAvailableDates() {
   return {
     start_date: Temporal.PlainDate.from(json.start_date),
     end_date: Temporal.PlainDate.from(json.end_date),
-    date_last_updated: Temporal.Instant.fromEpochMilliseconds(json.date_last_updated * 1000),
-    date_last_indexed: Temporal.Instant.fromEpochMilliseconds(json.date_last_indexed * 1000),
+    date_last_updated: Temporal.Instant.fromEpochMilliseconds(
+      json.date_last_updated * 1000
+    ),
+    date_last_indexed: Temporal.Instant.fromEpochMilliseconds(
+      json.date_last_indexed * 1000
+    ),
   }
 }
