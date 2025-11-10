@@ -92,6 +92,11 @@ export async function getStats(
   let newStats = 0
   let newUsers = 0
 
+  if (missingDays.length === 0) {
+    console.log('No missing days to load stats for')
+    return
+  }
+
   // Start 5 threads to fetch the missing days
   await runThreaded(
     missingDays,
@@ -143,15 +148,40 @@ export async function updateStats() {
   await getStats(availableDates.start_date, availableDates.end_date)
 }
 
-export async function refreshOldUserProfiles() {
+export async function refreshProfile(id?: string) {
+  if (!id) return
+  const profile = await getUserProfile(id)
+
+  await db.user.upsert({
+    where: { user_id: profile.user_id },
+    create: profile,
+    update: profile,
+  })
+}
+
+export async function refreshOldUserProfiles(
+  timeAgo = Temporal.Duration.from({ days: 7 }),
+  limit?: number
+) {
   const oldUsers = await db.user.findMany({
     where: {
       last_updated: {
-        lt: new Date(1762595425175),
+        lt: new Date(
+          Temporal.Now.zonedDateTimeISO('UTC')
+            .subtract(timeAgo)
+            .toInstant().epochMilliseconds
+        ),
       },
     },
     select: { user_id: true },
+    orderBy: { last_updated: 'asc' },
+    take: limit,
   })
+
+  if (oldUsers.length === 0) {
+    console.log('No old user profiles to refresh')
+    return
+  }
 
   console.log(`Refreshing ${oldUsers.length} old user profiles...`)
 
@@ -166,7 +196,4 @@ export async function refreshOldUserProfiles() {
   }
 
   console.log(`Completed refreshing ${oldUsers.length} user profiles`)
-  process.exit()
 }
-
-await refreshOldUserProfiles()
