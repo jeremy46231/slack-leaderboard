@@ -26,10 +26,10 @@ app.event('user_profile_changed', async ({ event }) => {
   })
 })
 
-const HOUR_MS = 60 * 60 * 1000
+const TASKS_DELAY_MS = 10 * 60 * 1000
 
-async function hourlyTasks() {
-  console.log('Running hourly tasks...')
+async function tasks() {
+  console.log('Running tasks...')
 
   try {
     await updateStats()
@@ -43,11 +43,9 @@ async function hourlyTasks() {
     console.error('Error refreshing old user profiles:', error)
   }
 
-  console.log('Hourly tasks completed')
+  console.log('Tasks completed')
+  setTimeout(tasks, TASKS_DELAY_MS)
 }
 
 // Run tasks immediately on startup
-hourlyTasks()
-
-// Schedule hourly tasks
-setInterval(hourlyTasks, HOUR_MS)
+tasks()
