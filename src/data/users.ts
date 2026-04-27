@@ -6,9 +6,8 @@ const DEFAULT_USER_CACHE_MAX_AGE = Temporal.Duration.from({ days: 3 })
 
 function cutoffDate(maxAge: Temporal.Duration) {
   return new Date(
-    Temporal.Now.zonedDateTimeISO('UTC')
-      .subtract(maxAge)
-      .toInstant().epochMilliseconds
+    Temporal.Now.zonedDateTimeISO('UTC').subtract(maxAge).toInstant()
+      .epochMilliseconds
   )
 }
 

@@ -56,6 +56,9 @@ export async function renderImage(
   height: number,
   fitTo?: ResvgRenderOptions['fitTo']
 ) {
+  // const debugHTML = (await import('react-dom/server')).renderToStaticMarkup(jsx)
+  // await Bun.write('tmp-image-debug.html', debugHTML)
+
   console.time('svg generation')
   const svg = await satori(jsx, {
     width,

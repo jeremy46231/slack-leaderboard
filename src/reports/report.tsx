@@ -5,6 +5,7 @@ import { jsDateToPlainDate } from '../helpers'
 import { makeCalendar } from './calendar'
 import { renderImage } from './image'
 import { makeChart } from './chart'
+import { makeStatsWidget } from './stats'
 
 export type dayInfo = {
   date: Temporal.PlainDate
@@ -59,12 +60,14 @@ function getUserInitials(user: {
   real_name: string | null
   user_id: string
 }) {
-  return getUserLabel(user)
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? '')
-    .join('') || '?'
+  return (
+    getUserLabel(user)
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() ?? '')
+      .join('') || '?'
+  )
 }
 
 async function inlineImage(url?: string | null) {
@@ -85,7 +88,15 @@ async function inlineImage(url?: string | null) {
   }
 }
 
-async function generateReport(userId: string) {
+function alignedSundayOnOrBefore(date: Temporal.PlainDate) {
+  let current = date
+  while (current.dayOfWeek !== 7) {
+    current = current.subtract({ days: 1 })
+  }
+  return current
+}
+
+async function generateReport(userId: string, showAll = false) {
   console.time('data fetching')
   const [user, endDate] = await Promise.all([
     getCachedUser(userId),
@@ -113,25 +124,31 @@ async function generateReport(userId: string) {
   const { streakLength, streakStartDate, streakLongerThanMax } =
     calculateStreak(activityByDate, endDate)
   const avatarSrc = await inlineImage(user.profile_picture)
+  const statsElement = makeStatsWidget(userDays)
 
-  // let startDate = endDate.with({ month: 1, day: 1 })
-  let calendarStartDate = endDate.subtract({ years: 1 }).add({ days: 1 })
-  while (calendarStartDate.dayOfWeek !== 7) {
-    // go back to the most recent Sunday
-    calendarStartDate = calendarStartDate.subtract({ days: 1 })
+  let visibleStartDate = endDate.subtract({ years: 1 }).add({ days: 1 })
+  if (showAll && userDays.length > 0) {
+    visibleStartDate = userDays.reduce(
+      (oldest, day) =>
+        Temporal.PlainDate.compare(day.date, oldest) < 0 ? day.date : oldest,
+      userDays[0]!.date
+    )
   }
+  const calendarStartDate = alignedSundayOnOrBefore(visibleStartDate)
   const { calendarElement, calendarWidth, calendarHeight } = await makeCalendar(
     activityByDate,
     calendarStartDate,
-    endDate
+    endDate,
+    showAll
   )
 
+  const chartHeight = 150
   const chartElement = await makeChart(
     activityByDate,
     calendarStartDate,
     endDate,
     calendarWidth,
-    150
+    chartHeight
   )
 
   const element = (
@@ -149,62 +166,82 @@ async function generateReport(userId: string) {
           height: 60,
           display: 'flex',
           flexDirection: 'row',
+          justifyContent: 'space-between',
         }}
       >
-        {avatarSrc ? (
-          <img
-            src={avatarSrc}
-            width={60}
-            height={60}
-            style={{
-              width: 60,
-              height: 60,
-              borderRadius: '50%',
-              objectFit: 'cover',
-            }}
-          />
-        ) : (
-          <div
-            style={{
-              width: 60,
-              height: 60,
-              borderRadius: '50%',
-              backgroundColor: '#dbeafe',
-              color: '#1d4ed8',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontFamily: 'Roboto',
-              fontSize: 24,
-              fontWeight: 700,
-            }}
-          >
-            {getUserInitials(user)}
-          </div>
-        )}
         <div
           style={{
             display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            marginLeft: 12,
-            fontFamily: 'Roboto',
+            flexDirection: 'row',
           }}
         >
-          <span style={{ fontSize: 18, fontWeight: 'bold' }}>
-            {getUserLabel(user)}
-          </span>
-          <span style={{ fontSize: 14, color: '#555' }}>
-            Current streak: {streakLongerThanMax ? 'at least ' : ''}
-            {streakLength} days (
-            {streakLongerThanMax ? 'no data before ' : 'since '}
-            {streakStartDate.toLocaleString('en-US', {
-              month: 'short',
-              day: 'numeric',
-              year: 'numeric',
-            })}
-            )
-          </span>
+          {avatarSrc ? (
+            <img
+              src={avatarSrc}
+              width={60}
+              height={60}
+              style={{
+                width: 60,
+                height: 60,
+                borderRadius: '50%',
+                objectFit: 'cover',
+              }}
+            />
+          ) : (
+            <div
+              style={{
+                width: 60,
+                height: 60,
+                borderRadius: '50%',
+                backgroundColor: '#dbeafe',
+                color: '#1d4ed8',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontFamily: 'Roboto',
+                fontSize: 24,
+                fontWeight: 700,
+              }}
+            >
+              {getUserInitials(user)}
+            </div>
+          )}
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center',
+              marginLeft: 12,
+              fontFamily: 'Roboto',
+            }}
+          >
+            <span style={{ fontSize: 18, fontWeight: 'bold' }}>
+              {getUserLabel(user)}
+            </span>
+            <span style={{ fontSize: 14, color: '#555' }}>
+              Current streak: {streakLongerThanMax ? 'at least ' : ''}
+              {streakLength} days (
+              {streakLongerThanMax ? 'no data before ' : 'since '}
+              {streakStartDate.toLocaleString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+              })}
+              )
+            </span>
+          </div>
+        </div>
+        <div
+          style={{
+            width: 320,
+            height: 60,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'stretch',
+            justifyContent: 'flex-start',
+          }}
+        >
+          {statsElement}
         </div>
       </div>
       {chartElement}
@@ -260,7 +297,7 @@ async function generateReport(userId: string) {
   // padding + calendar + padding
   const width = 10 + calendarWidth + 10
   // padding + profile pic + padding + calendar + padding + footer + padding
-  const height = 10 + 60 + 10 + 150 + 10 + calendarHeight + 10 + 12 + 10
+  const height = 10 + 60 + 10 + chartHeight + 10 + calendarHeight + 10 + 12 + 10
 
   console.timeEnd('data processing')
 
@@ -271,13 +308,22 @@ async function generateReport(userId: string) {
 }
 
 if (import.meta.main) {
-  const userId = 'U08PUHSMW4V'
+  const [userId, mode] = Bun.argv.slice(2)
+  if (!userId) {
+    throw new Error('Usage: bun src/reports/report.tsx <user-id> [all]')
+  }
+  if (mode && mode !== 'all') {
+    throw new Error('Optional second argument must be "all"')
+  }
+  const showAll = mode === 'all'
   try {
     console.time('calendar generation')
-    const pngData = await generateReport(userId)
+    const pngData = await generateReport(userId, showAll)
     await Bun.write('./tmp-calendar.png', pngData)
     console.timeEnd('calendar generation')
-    console.log(`Calendar saved to tmp-calendar.png for user ${userId}`)
+    console.log(
+      `Calendar saved to tmp-calendar.png for user ${userId}${showAll ? ' (all)' : ''}`
+    )
   } finally {
     await db.$disconnect()
   }

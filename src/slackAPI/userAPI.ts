@@ -48,7 +48,11 @@ async function plainSlackBrowserAPI(
   if (!response.ok) {
     try {
       const text = await response.text()
-      console.error('Failed to fetch Slack API, fail text:', response.status, text)
+      console.error(
+        'Failed to fetch Slack API, fail text:',
+        response.status,
+        text
+      )
     } catch {}
     throw new Error('Failed to fetch Slack API, fail: ' + response.statusText)
   }

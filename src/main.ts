@@ -2,7 +2,10 @@ import { app } from './slackAPI/app.ts'
 import { handleAppHome } from './appHome.ts'
 import { updateStats, refreshOldUserProfiles } from './data/getStats.ts'
 import { Temporal } from 'temporal-polyfill'
-import { convertSlackProfileToDbUser, type SlackProfile } from './slackAPI/botAPI.ts'
+import {
+  convertSlackProfileToDbUser,
+  type SlackProfile,
+} from './slackAPI/botAPI.ts'
 import { db } from './data/database.ts'
 
 app.event('app_home_opened', handleAppHome)

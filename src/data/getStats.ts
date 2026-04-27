@@ -61,8 +61,10 @@ export async function getStats(
   endDate: Temporal.PlainDate,
   threadCount = 5
 ) {
-  console.log(`Fetching stats from ${startDate.toString()} to ${endDate.toString()}`)
-  
+  console.log(
+    `Fetching stats from ${startDate.toString()} to ${endDate.toString()}`
+  )
+
   // Make sure that records exist for all days in the range
   await db.day.createMany({
     data: [...daysGenerator(startDate, endDate)].map((date) => ({
@@ -159,9 +161,8 @@ export async function refreshOldUserProfiles(
     where: {
       last_updated: {
         lt: new Date(
-          Temporal.Now.zonedDateTimeISO('UTC')
-            .subtract(timeAgo)
-            .toInstant().epochMilliseconds
+          Temporal.Now.zonedDateTimeISO('UTC').subtract(timeAgo).toInstant()
+            .epochMilliseconds
         ),
       },
     },

@@ -20,7 +20,8 @@ function getActivityColor(
 export async function makeCalendar(
   activityByDate: Map<string, dayInfo>,
   startDate: Temporal.PlainDate,
-  endDate: Temporal.PlainDate
+  endDate: Temporal.PlainDate,
+  showYearsForJanuary = false
 ) {
   const weeks: Temporal.PlainDate[][] = []
   let currentDay = startDate
@@ -60,7 +61,10 @@ export async function makeCalendar(
         <div
           style={{
             height: CELL_SIZE,
-            transform: 'translateY(3px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'flex-end',
+            paddingRight: 4,
           }}
         >
           Mon
@@ -69,7 +73,10 @@ export async function makeCalendar(
         <div
           style={{
             height: CELL_SIZE,
-            transform: 'translateY(3px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'flex-end',
+            paddingRight: 4,
           }}
         >
           Wed
@@ -78,7 +85,10 @@ export async function makeCalendar(
         <div
           style={{
             height: CELL_SIZE,
-            transform: 'translateY(3px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'flex-end',
+            paddingRight: 4,
           }}
         >
           Fri
@@ -106,9 +116,13 @@ export async function makeCalendar(
                   /*firstDayOfYear
                     ? firstDayOfYear.toLocaleString('en-US', { year: 'numeric' })
                     :*/ firstDayOfMonth
-                    ? firstDayOfMonth.toLocaleString('en-US', {
-                        month: 'short',
-                      })
+                    ? showYearsForJanuary && firstDayOfMonth.month === 1
+                      ? firstDayOfMonth.toLocaleString('en-US', {
+                          year: 'numeric',
+                        })
+                      : firstDayOfMonth.toLocaleString('en-US', {
+                          month: 'short',
+                        })
                     : null
                 }
               </div>
