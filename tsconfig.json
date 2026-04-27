@@ -1,7 +1,6 @@
 {
   "compilerOptions": {
     "jsx": "react-jsx",
-    "jsxImportSource": "reblock-js",
 
     // Enable latest features
     "lib": ["ESNext"],
