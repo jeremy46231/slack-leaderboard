@@ -46,11 +46,13 @@ app.message(async ({ message, client, logger }) => {
     const suffix =
       mode === 'all' ? ' (all time)' : mode === 'stacked' ? ' (stacked)' : ''
     const reportLabel = `Slack stats for ${userLabel}${suffix}`
+    const requesterSuffix =
+      targetUserId === userId ? '' : ` (requested by <@${userId}>)`
 
     await client.filesUploadV2({
       channel_id: REPORT_CHANNEL_ID,
       thread_ts: threadTs,
-      initial_comment: `<@${userId}>${suffix}`,
+      initial_comment: `<@${targetUserId}>${suffix}${requesterSuffix}`,
       filename:
         mode === 'all'
           ? 'slack-stats-all.png'
