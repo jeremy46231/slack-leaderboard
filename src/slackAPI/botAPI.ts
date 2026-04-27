@@ -25,6 +25,18 @@ export async function getUserProfile(userId: string) {
   return convertSlackProfileToDbUser(response.profile, userId)
 }
 
+export function isSlackUserNotFoundError(error: unknown) {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'data' in error &&
+    typeof error.data === 'object' &&
+    error.data !== null &&
+    'error' in error.data &&
+    error.data.error === 'user_not_found'
+  )
+}
+
 export type SlackProfile = NonNullable<
   SlackWebTypes.UsersProfileGetResponse['profile']
 >

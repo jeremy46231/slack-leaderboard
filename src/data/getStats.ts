@@ -180,8 +180,16 @@ export async function refreshOldUserProfiles(
 
   let i = 0
   for (const user of oldUsers) {
-    await refreshCachedUser(user.user_id)
-    console.log(`    Refreshed user ${++i}/${oldUsers.length}`)
+    try {
+      await refreshCachedUser(user.user_id)
+      console.log(`    Refreshed user ${++i}/${oldUsers.length}`)
+    } catch (error) {
+      console.error(
+        `    Failed to refresh user ${user.user_id} (${i + 1}/${oldUsers.length})`,
+        error
+      )
+      i++
+    }
   }
 
   console.log(`Completed refreshing ${oldUsers.length} user profiles`)
