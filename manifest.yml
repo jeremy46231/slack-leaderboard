@@ -1,0 +1,33 @@
+display_information:
+  name: Slack Stats
+features:
+  app_home:
+    home_tab_enabled: true
+    messages_tab_enabled: false
+    messages_tab_read_only_enabled: true
+  bot_user:
+    display_name: Slack Stats
+    always_online: false
+oauth_config:
+  scopes:
+    bot:
+      - channels:history
+      - chat:write
+      - chat:write.public
+      - files:write
+      - users.profile:read
+      - users:read
+      - reactions:write
+  pkce_enabled: false
+settings:
+  event_subscriptions:
+    bot_events:
+      - app_home_opened
+      - message.channels
+      - user_profile_changed
+  interactivity:
+    is_enabled: true
+  org_deploy_enabled: false
+  socket_mode_enabled: true
+  token_rotation_enabled: false
+  is_mcp_enabled: false

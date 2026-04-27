@@ -1,5 +1,4 @@
 import { app } from './slackAPI/app.ts'
-import { handleAppHome } from './appHome.ts'
 import { updateStats, refreshOldUserProfiles } from './data/getStats.ts'
 import { Temporal } from 'temporal-polyfill'
 import {
@@ -7,18 +6,13 @@ import {
   type SlackProfile,
 } from './slackAPI/botAPI.ts'
 import { db } from './data/database.ts'
-
-app.event('app_home_opened', handleAppHome)
+import './messageHandler.ts'
 
 app.event('user_profile_changed', async ({ event }) => {
   const userId = event.user.id
   const rawProfile = event.user.profile as SlackProfile
   if (!rawProfile) {
     console.error('No profile data in user_profile_changed event')
-    return
-  }
-  if (rawProfile.fields === null) {
-    console.error('No custom fields in user profile for user:', userId)
     return
   }
   const profile = convertSlackProfileToDbUser(rawProfile, userId)
@@ -49,6 +43,8 @@ async function tasks() {
   console.log('Tasks completed')
   setTimeout(tasks, TASKS_DELAY_MS)
 }
+
+await app.start()
 
 // Run tasks immediately on startup
 tasks()

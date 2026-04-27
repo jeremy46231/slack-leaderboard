@@ -96,7 +96,7 @@ function alignedSundayOnOrBefore(date: Temporal.PlainDate) {
   return current
 }
 
-async function generateReport(userId: string, showAll = false) {
+export async function generateReport(userId: string, showAll = false) {
   console.time('data fetching')
   const [user, endDate] = await Promise.all([
     getCachedUser(userId),

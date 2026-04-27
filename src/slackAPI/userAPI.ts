@@ -6,17 +6,46 @@ interface SlackAccount {
   token: string
 }
 
-const slackDomain = process.env.SLACK_DOMAIN!
-const accounts = JSON.parse(process.env.SLACK_USER_ACCOUNTS!) as SlackAccount[]
+function getSlackConfig() {
+  const slackDomain = process.env['SLACK_DOMAIN']
+  const rawAccounts = process.env['SLACK_USER_ACCOUNTS']
+  const legacyCookie = process.env['SLACK_USER_COOKIE']
+  const legacyToken = process.env['SLACK_USER_TOKEN']
 
-if (
-  !slackDomain ||
-  !accounts ||
-  !Array.isArray(accounts) ||
-  accounts.length === 0
-) {
+  if (!slackDomain) {
+    throw new Error(
+      'Missing required environment variable: SLACK_DOMAIN'
+    )
+  }
+
+  if (rawAccounts) {
+    let accounts: SlackAccount[]
+    try {
+      accounts = JSON.parse(rawAccounts) as SlackAccount[]
+    } catch {
+      throw new Error(
+        'Invalid SLACK_USER_ACCOUNTS value: expected a JSON array of { cookie, token } objects'
+      )
+    }
+
+    if (!Array.isArray(accounts) || accounts.length === 0) {
+      throw new Error(
+        'Invalid SLACK_USER_ACCOUNTS value: expected a non-empty JSON array of { cookie, token } objects'
+      )
+    }
+
+    return { slackDomain, accounts }
+  }
+
+  if (legacyCookie && legacyToken) {
+    return {
+      slackDomain,
+      accounts: [{ cookie: legacyCookie, token: legacyToken }],
+    }
+  }
+
   throw new Error(
-    'Missing required environment variables: SLACK_DOMAIN and SLACK_USER_ACCOUNTS (must be a non-empty JSON array)'
+    'Missing Slack user auth: set SLACK_USER_ACCOUNTS or both SLACK_USER_COOKIE and SLACK_USER_TOKEN'
   )
 }
 
@@ -26,6 +55,8 @@ async function plainSlackBrowserAPI(
   method: string,
   params: Record<string, string>
 ) {
+  const { slackDomain, accounts } = getSlackConfig()
+
   // Round-robin: pick next account and increment counter
   const accountIndex = currentAccountIndex
   currentAccountIndex = (currentAccountIndex + 1) % accounts.length
