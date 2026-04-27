@@ -11,3 +11,4 @@ const auth = await app.client.auth.test()
 if (!auth.ok) {
   throw new Error('Failed to authenticate with Slack')
 }
+console.log('⚡️ Bolt app is running!')

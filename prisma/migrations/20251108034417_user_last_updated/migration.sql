@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "User" ADD COLUMN     "last_updated" TIMESTAMPTZ NOT NULL DEFAULT '1970-01-01 00:00:00 +00:00';

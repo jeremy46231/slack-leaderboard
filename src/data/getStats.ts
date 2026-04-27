@@ -49,11 +49,12 @@ export async function ensureUsersInDatabase(userIDs: string[]) {
   // Get user profiles for missing IDs and add them to the database
   let i = 0
   for (const missingID of missingIDs) {
-    const user = await getUserProfile(missingID)
+    const profile = await getUserProfile(missingID)
+
     await db.user.upsert({
-      where: { user_id: user.user_id },
-      create: user,
-      update: user,
+      where: { user_id: profile.user_id },
+      create: profile,
+      update: profile,
     })
     console.log(`    Fetched new user ${++i}/${missingIDs.length}`)
   }
@@ -94,6 +95,11 @@ export async function getStats(
 
   let newStats = 0
   let newUsers = 0
+
+  if (missingDays.length === 0) {
+    console.log('No missing days to load stats for')
+    return
+  }
 
   // Start threads to fetch the missing days
   await runThreaded(
@@ -144,4 +150,54 @@ export async function getStats(
 export async function updateStats() {
   const availableDates = await getAvailableDates()
   await getStats(availableDates.start_date, availableDates.end_date)
+}
+
+export async function refreshProfile(id?: string) {
+  if (!id) return
+  const profile = await getUserProfile(id)
+
+  await db.user.upsert({
+    where: { user_id: profile.user_id },
+    create: profile,
+    update: profile,
+  })
+}
+
+export async function refreshOldUserProfiles(
+  timeAgo = Temporal.Duration.from({ days: 7 }),
+  limit?: number
+) {
+  const oldUsers = await db.user.findMany({
+    where: {
+      last_updated: {
+        lt: new Date(
+          Temporal.Now.zonedDateTimeISO('UTC')
+            .subtract(timeAgo)
+            .toInstant().epochMilliseconds
+        ),
+      },
+    },
+    select: { user_id: true },
+    orderBy: { last_updated: 'asc' },
+    take: limit,
+  })
+
+  if (oldUsers.length === 0) {
+    console.log('No old user profiles to refresh')
+    return
+  }
+
+  console.log(`Refreshing ${oldUsers.length} old user profiles...`)
+
+  let i = 0
+  for (const user of oldUsers) {
+    const profile = await getUserProfile(user.user_id)
+    await db.user.update({
+      where: { user_id: user.user_id },
+      data: profile,
+    })
+    console.log(`    Refreshed user ${++i}/${oldUsers.length}`)
+  }
+
+  console.log(`Completed refreshing ${oldUsers.length} user profiles`)
 }
