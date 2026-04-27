@@ -100,14 +100,16 @@ export async function makeChart(
           color: '#0ea5e9',
           smooth: 0.2,
           symbol: 'none',
+          z: 3,
+          zlevel: 0,
           data: points.map((point) => point.totalMessages),
           lineStyle: {
             color: '#0ea5e9',
             width: 2,
           },
           areaStyle: {
-            color: '#bae6fd',
-            opacity: 0.6,
+            color: '#0ea5e9',
+            opacity: 0.2,
           },
         },
         {
@@ -116,6 +118,8 @@ export async function makeChart(
           color: '#ef4444',
           smooth: 0.2,
           symbol: 'none',
+          z: 2,
+          zlevel: 0,
           data: points.map((point) => point.reactions),
           lineStyle: {
             color: '#ef4444',
