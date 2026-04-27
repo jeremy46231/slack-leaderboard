@@ -52,7 +52,7 @@ app.message(async ({ message, client, logger }) => {
     await client.filesUploadV2({
       channel_id: REPORT_CHANNEL_ID,
       thread_ts: threadTs,
-      initial_comment: `<@${userId}>${reportLabel}`,
+      initial_comment: `<@${userId}>${suffix}`,
       filename: showAll ? 'slack-stats-all.png' : 'slack-stats.png',
       file: Buffer.from(pngData),
       title: reportLabel,
