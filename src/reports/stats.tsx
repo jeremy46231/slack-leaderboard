@@ -9,9 +9,7 @@ function formatNumber(value: number) {
   return value.toLocaleString('en-US')
 }
 
-export function makeStatsWidget(
-  userDays: dayInfo[]
-) {
+export function makeStatsWidget(userDays: dayInfo[]) {
   const daysOnline = userDays.filter((day) => day.is_active).length
   const daysReacted = userDays.filter((day) => day.reactions_added > 0).length
   const daysMessaged = userDays.filter((day) => day.messages_posted > 0).length
@@ -47,7 +45,9 @@ export function makeStatsWidget(
   const lines = [
     `${formatNumber(daysOnline)} days online, ${formatNumber(dayActivityStats[0]!.value)} ${dayActivityStats[0]!.label}, ${formatNumber(dayActivityStats[1]!.value)} ${dayActivityStats[1]!.label}`,
     `${formatNumber(totalMessages)} total messages (${percent(totalPrivateMessages, totalMessages)}% private), ${formatNumber(totalReactions)} reactions`,
-    platformStats.map((platform) => `${platform.value}% ${platform.label}`).join(', '),
+    platformStats
+      .map((platform) => `${platform.value}% ${platform.label}`)
+      .join(', '),
   ]
 
   return (

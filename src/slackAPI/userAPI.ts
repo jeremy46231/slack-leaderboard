@@ -13,9 +13,7 @@ function getSlackConfig() {
   const legacyToken = process.env['SLACK_USER_TOKEN']
 
   if (!slackDomain) {
-    throw new Error(
-      'Missing required environment variable: SLACK_DOMAIN'
-    )
+    throw new Error('Missing required environment variable: SLACK_DOMAIN')
   }
 
   if (rawAccounts) {

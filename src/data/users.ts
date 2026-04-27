@@ -1,9 +1,6 @@
 import { Temporal } from 'temporal-polyfill'
 import { db } from './database.ts'
-import {
-  getUserProfile,
-  isSlackUserNotFoundError,
-} from '../slackAPI/botAPI.ts'
+import { getUserProfile, isSlackUserNotFoundError } from '../slackAPI/botAPI.ts'
 
 const DEFAULT_USER_CACHE_MAX_AGE = Temporal.Duration.from({ days: 3 })
 

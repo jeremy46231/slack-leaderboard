@@ -151,7 +151,8 @@ function buildStackedYearRanges(
     ranges.push({
       startDate,
       endDate:
-        year === endDate.year && Temporal.PlainDate.compare(endDate, endOfYear) < 0
+        year === endDate.year &&
+        Temporal.PlainDate.compare(endDate, endOfYear) < 0
           ? endDate
           : endOfYear,
     })
@@ -163,11 +164,15 @@ function buildStackedYearRanges(
 function shouldShowMissingDataWarning(userDays: dayInfo[]) {
   const dataCoverageWarningCutoff = oldestStatDate.add({ months: 3 })
   return userDays.some(
-    (day) => Temporal.PlainDate.compare(day.date, dataCoverageWarningCutoff) <= 0
+    (day) =>
+      Temporal.PlainDate.compare(day.date, dataCoverageWarningCutoff) <= 0
   )
 }
 
-export async function generateReport(userId: string, mode: ReportMode = 'default') {
+export async function generateReport(
+  userId: string,
+  mode: ReportMode = 'default'
+) {
   console.time('data fetching')
   const [user, endDate] = await Promise.all([
     getCachedUser(userId),
@@ -214,7 +219,9 @@ export async function generateReport(userId: string, mode: ReportMode = 'default
       )
     )
 
-    calendarWidth = Math.max(...stackedCalendars.map((calendar) => calendar.calendarWidth))
+    calendarWidth = Math.max(
+      ...stackedCalendars.map((calendar) => calendar.calendarWidth)
+    )
     calendarHeight = stackedCalendars.reduce(
       (sum, calendar, index) =>
         sum + calendar.calendarHeight + (index === 0 ? 0 : 8),
@@ -377,7 +384,7 @@ export async function generateReport(userId: string, mode: ReportMode = 'default
               day: 'numeric',
               year: 'numeric',
             })}{' '}
-            &bull;{' '}
+            &bull;&nbsp;
           </>
         )}
         Data updated{' '}
