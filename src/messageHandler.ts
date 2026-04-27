@@ -4,6 +4,7 @@ import { app } from './slackAPI/app.ts'
 import { generateReport } from './reports/report.tsx'
 import { parseReportRequest } from './reports/request.ts'
 
+const BOT_USER_ID = 'U07SAUMSCAH'
 const REPORT_CHANNEL_ID = 'C09RY3A75JR'
 
 function getUserLabel(user: {
@@ -14,27 +15,46 @@ function getUserLabel(user: {
   return user.display_name || user.real_name || user.user_id
 }
 
-app.message(async ({ message, client, logger }) => {
-  if (message.channel !== REPORT_CHANNEL_ID) {
-    return
+function stripLeadingBotMention(text?: string) {
+  const trimmed = text?.trim()
+  if (!trimmed) {
+    return undefined
   }
 
-  if (message.subtype !== undefined) {
-    return
+  const mentionPrefix = `<@${BOT_USER_ID}>`
+  if (!trimmed.startsWith(mentionPrefix)) {
+    return undefined
   }
 
-  const userMessage = message as GenericMessageEvent
-  const userId = userMessage.user
+  return trimmed.slice(mentionPrefix.length).trim()
+}
+
+async function handleReportRequest({
+  message,
+  client,
+  logger,
+  requestText,
+  responseChannelId,
+  responseThreadTs,
+}: {
+  message: GenericMessageEvent
+  client: {
+    filesUploadV2: typeof app.client.filesUploadV2
+    chat: typeof app.client.chat
+  }
+  logger: {
+    error: (error: unknown) => void
+  }
+  requestText?: string
+  responseChannelId: string
+  responseThreadTs: string
+}) {
+  const userId = message.user
   if (!userId) {
     return
   }
 
-  if (userMessage.thread_ts) {
-    return
-  }
-
-  const threadTs = userMessage.ts
-  const { requestedUserId, mode } = parseReportRequest(userMessage.text)
+  const { requestedUserId, mode } = parseReportRequest(requestText)
   const targetUserId = requestedUserId ?? userId
 
   try {
@@ -50,8 +70,8 @@ app.message(async ({ message, client, logger }) => {
       targetUserId === userId ? '' : ` (requested by <@${userId}>)`
 
     await client.filesUploadV2({
-      channel_id: REPORT_CHANNEL_ID,
-      thread_ts: threadTs,
+      channel_id: responseChannelId,
+      thread_ts: responseThreadTs,
       initial_comment: `<@${targetUserId}>${suffix}${requesterSuffix}`,
       filename:
         mode === 'all'
@@ -65,9 +85,48 @@ app.message(async ({ message, client, logger }) => {
   } catch (error) {
     logger.error(error)
     await client.chat.postMessage({
-      channel: REPORT_CHANNEL_ID,
-      thread_ts: threadTs,
+      channel: responseChannelId,
+      thread_ts: responseThreadTs,
       text: `<@${userId}> I couldn't generate your report right now.`,
     })
   }
+}
+
+app.event('app_mention', async ({ event, client, logger }) => {
+  await handleReportRequest({
+    message: event as GenericMessageEvent,
+    client,
+    logger,
+    requestText: stripLeadingBotMention(event.text),
+    responseChannelId: event.channel,
+    responseThreadTs: event.thread_ts ?? event.ts,
+  })
+})
+
+app.message(async ({ message, client, logger }) => {
+  if (message.subtype !== undefined) {
+    return
+  }
+
+  const userMessage = message as GenericMessageEvent
+  if (stripLeadingBotMention(userMessage.text) !== undefined) {
+    return
+  }
+
+  if (userMessage.channel !== REPORT_CHANNEL_ID) {
+    return
+  }
+
+  if (userMessage.thread_ts) {
+    return
+  }
+
+  await handleReportRequest({
+    message: userMessage,
+    client,
+    logger,
+    requestText: userMessage.text,
+    responseChannelId: REPORT_CHANNEL_ID,
+    responseThreadTs: userMessage.ts,
+  })
 })
