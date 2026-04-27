@@ -1,4 +1,5 @@
 import { Temporal } from 'temporal-polyfill'
+import type { ReactNode } from 'react'
 import { db, mostRecentStatDate, oldestStatDate } from '../data/database'
 import { getCachedUser } from '../data/users.ts'
 import { jsDateToPlainDate } from '../helpers'
@@ -6,6 +7,7 @@ import { makeCalendar } from './calendar'
 import { renderImage } from './image'
 import { makeChart } from './chart'
 import { makeStatsWidget } from './stats'
+import { parseReportRequest, type ReportMode } from './request'
 
 export type dayInfo = {
   date: Temporal.PlainDate
@@ -96,7 +98,76 @@ function alignedSundayOnOrBefore(date: Temporal.PlainDate) {
   return current
 }
 
-export async function generateReport(userId: string, showAll = false) {
+function getDefaultVisibleStartDate(endDate: Temporal.PlainDate) {
+  return endDate.subtract({ years: 1 }).add({ days: 1 })
+}
+
+function getUserActivityStartDate(userDays: dayInfo[]) {
+  if (userDays.length === 0) {
+    return undefined
+  }
+
+  return userDays.reduce(
+    (oldest, day) =>
+      Temporal.PlainDate.compare(day.date, oldest) < 0 ? day.date : oldest,
+    userDays[0]!.date
+  )
+}
+
+function getVisibleStartDate(
+  mode: ReportMode,
+  endDate: Temporal.PlainDate,
+  userDays: dayInfo[]
+) {
+  const defaultVisibleStartDate = getDefaultVisibleStartDate(endDate)
+  const userActivityStartDate = getUserActivityStartDate(userDays)
+
+  if (mode !== 'all' || !userActivityStartDate) {
+    return defaultVisibleStartDate
+  }
+
+  return Temporal.PlainDate.compare(
+    userActivityStartDate,
+    defaultVisibleStartDate
+  ) < 0
+    ? userActivityStartDate
+    : defaultVisibleStartDate
+}
+
+function buildStackedYearRanges(
+  userDays: dayInfo[],
+  endDate: Temporal.PlainDate
+) {
+  const userActivityStartDate = getUserActivityStartDate(userDays)
+  const firstYear = userActivityStartDate?.year ?? endDate.year
+  const ranges: Array<{
+    startDate: Temporal.PlainDate
+    endDate: Temporal.PlainDate
+  }> = []
+
+  for (let year = firstYear; year <= endDate.year; year++) {
+    const startDate = Temporal.PlainDate.from({ year, month: 1, day: 1 })
+    const endOfYear = Temporal.PlainDate.from({ year, month: 12, day: 31 })
+    ranges.push({
+      startDate,
+      endDate:
+        year === endDate.year && Temporal.PlainDate.compare(endDate, endOfYear) < 0
+          ? endDate
+          : endOfYear,
+    })
+  }
+
+  return ranges
+}
+
+function shouldShowMissingDataWarning(userDays: dayInfo[]) {
+  const dataCoverageWarningCutoff = oldestStatDate.add({ months: 3 })
+  return userDays.some(
+    (day) => Temporal.PlainDate.compare(day.date, dataCoverageWarningCutoff) <= 0
+  )
+}
+
+export async function generateReport(userId: string, mode: ReportMode = 'default') {
   console.time('data fetching')
   const [user, endDate] = await Promise.all([
     getCachedUser(userId),
@@ -125,31 +196,72 @@ export async function generateReport(userId: string, showAll = false) {
     calculateStreak(activityByDate, endDate)
   const avatarSrc = await inlineImage(user.profile_picture)
   const statsElement = makeStatsWidget(userDays)
+  const showMissingDataWarning = shouldShowMissingDataWarning(userDays)
 
-  let visibleStartDate = endDate.subtract({ years: 1 }).add({ days: 1 })
-  if (showAll && userDays.length > 0) {
-    visibleStartDate = userDays.reduce(
-      (oldest, day) =>
-        Temporal.PlainDate.compare(day.date, oldest) < 0 ? day.date : oldest,
-      userDays[0]!.date
+  const isStacked = mode === 'stacked'
+  const visibleStartDate = getVisibleStartDate(mode, endDate, userDays)
+
+  let chartElement: ReactNode = null
+  let chartHeight = 0
+  let calendarElement: ReactNode
+  let calendarWidth: number
+  let calendarHeight: number
+
+  if (isStacked) {
+    const stackedCalendars = await Promise.all(
+      buildStackedYearRanges(userDays, endDate).map(({ startDate, endDate }) =>
+        makeCalendar(activityByDate, startDate, endDate, true, oldestStatDate)
+      )
+    )
+
+    calendarWidth = Math.max(...stackedCalendars.map((calendar) => calendar.calendarWidth))
+    calendarHeight = stackedCalendars.reduce(
+      (sum, calendar, index) =>
+        sum + calendar.calendarHeight + (index === 0 ? 0 : 8),
+      0
+    )
+    calendarElement = (
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 8,
+        }}
+      >
+        {stackedCalendars.map((calendar, index) => (
+          <div
+            key={index}
+            style={{
+              display: 'flex',
+            }}
+          >
+            {calendar.calendarElement}
+          </div>
+        ))}
+      </div>
+    )
+  } else {
+    const calendarStartDate = alignedSundayOnOrBefore(visibleStartDate)
+    const calendar = await makeCalendar(
+      activityByDate,
+      calendarStartDate,
+      endDate,
+      mode === 'all',
+      oldestStatDate
+    )
+    calendarElement = calendar.calendarElement
+    calendarWidth = calendar.calendarWidth
+    calendarHeight = calendar.calendarHeight
+
+    chartHeight = 150
+    chartElement = await makeChart(
+      activityByDate,
+      calendarStartDate,
+      endDate,
+      calendarWidth,
+      chartHeight
     )
   }
-  const calendarStartDate = alignedSundayOnOrBefore(visibleStartDate)
-  const { calendarElement, calendarWidth, calendarHeight } = await makeCalendar(
-    activityByDate,
-    calendarStartDate,
-    endDate,
-    showAll
-  )
-
-  const chartHeight = 150
-  const chartElement = await makeChart(
-    activityByDate,
-    calendarStartDate,
-    endDate,
-    calendarWidth,
-    chartHeight
-  )
 
   const element = (
     <div
@@ -257,6 +369,17 @@ export async function generateReport(userId: string, showAll = false) {
           fontFamily: 'Roboto',
         }}
       >
+        {showMissingDataWarning && (
+          <>
+            No data before{' '}
+            {oldestStatDate.toLocaleString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric',
+            })}{' '}
+            &bull;{' '}
+          </>
+        )}
         Data updated{' '}
         {endDate.toLocaleString('en-US', {
           month: 'short',
@@ -308,21 +431,23 @@ export async function generateReport(userId: string, showAll = false) {
 }
 
 if (import.meta.main) {
-  const [userId, mode] = Bun.argv.slice(2)
-  if (!userId) {
-    throw new Error('Usage: bun src/reports/report.tsx <user-id> [all]')
+  const requestText = Bun.argv.slice(2).join(' ').trim()
+  if (!requestText) {
+    throw new Error(
+      'Usage: bun src/reports/report.tsx <user-id|@mention> [all|"all time"|stacked]'
+    )
   }
-  if (mode && mode !== 'all') {
-    throw new Error('Optional second argument must be "all"')
+  const { requestedUserId, mode } = parseReportRequest(requestText)
+  if (!requestedUserId) {
+    throw new Error('CLI input must start with a Slack user ID or mention.')
   }
-  const showAll = mode === 'all'
   try {
     console.time('calendar generation')
-    const pngData = await generateReport(userId, showAll)
+    const pngData = await generateReport(requestedUserId, mode)
     await Bun.write('./tmp-calendar.png', pngData)
     console.timeEnd('calendar generation')
     console.log(
-      `Calendar saved to tmp-calendar.png for user ${userId}${showAll ? ' (all)' : ''}`
+      `Calendar saved to tmp-calendar.png for user ${requestedUserId}${mode === 'default' ? '' : ` (${mode})`}`
     )
   } finally {
     await db.$disconnect()

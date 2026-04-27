@@ -21,7 +21,8 @@ export async function makeCalendar(
   activityByDate: Map<string, dayInfo>,
   startDate: Temporal.PlainDate,
   endDate: Temporal.PlainDate,
-  showYearsForJanuary = false
+  showYearsForJanuary = false,
+  dataAvailableStartDate?: Temporal.PlainDate
 ) {
   const weeks: Temporal.PlainDate[][] = []
   let currentDay = startDate
@@ -130,6 +131,9 @@ export async function makeCalendar(
                 const withinRange =
                   Temporal.PlainDate.compare(day, startDate) >= 0 &&
                   Temporal.PlainDate.compare(day, endDate) <= 0
+                const dataUnavailable =
+                  dataAvailableStartDate !== undefined &&
+                  Temporal.PlainDate.compare(day, dataAvailableStartDate) < 0
                 const activity = activityByDate.get(day.toString())
 
                 return (
@@ -143,7 +147,7 @@ export async function makeCalendar(
                       justifyContent: 'center',
                     }}
                   >
-                    {withinRange && (
+                    {withinRange && !dataUnavailable && (
                       <div
                         title={`${day.toString()}: ${
                           activity?.is_active

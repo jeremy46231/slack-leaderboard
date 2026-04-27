@@ -2,13 +2,9 @@ import type { GenericMessageEvent } from '@slack/types'
 import { getCachedUser } from './data/users.ts'
 import { app } from './slackAPI/app.ts'
 import { generateReport } from './reports/report.tsx'
+import { parseReportRequest } from './reports/request.ts'
 
 const REPORT_CHANNEL_ID = 'C09RY3A75JR'
-
-function shouldShowAll(text?: string) {
-  const normalized = text?.trim().toLowerCase()
-  return normalized === 'all' || normalized === 'all time'
-}
 
 function getUserLabel(user: {
   display_name: string | null
@@ -38,22 +34,29 @@ app.message(async ({ message, client, logger }) => {
   }
 
   const threadTs = userMessage.ts
-  const showAll = shouldShowAll(userMessage.text)
+  const { requestedUserId, mode } = parseReportRequest(userMessage.text)
+  const targetUserId = requestedUserId ?? userId
 
   try {
     const [pngData, user] = await Promise.all([
-      generateReport(userId, showAll),
-      getCachedUser(userId),
+      generateReport(targetUserId, mode),
+      getCachedUser(targetUserId),
     ])
     const userLabel = getUserLabel(user)
-    const suffix = showAll ? ' (all time)' : ''
+    const suffix =
+      mode === 'all' ? ' (all time)' : mode === 'stacked' ? ' (stacked)' : ''
     const reportLabel = `Slack stats for ${userLabel}${suffix}`
 
     await client.filesUploadV2({
       channel_id: REPORT_CHANNEL_ID,
       thread_ts: threadTs,
       initial_comment: `<@${userId}>${suffix}`,
-      filename: showAll ? 'slack-stats-all.png' : 'slack-stats.png',
+      filename:
+        mode === 'all'
+          ? 'slack-stats-all.png'
+          : mode === 'stacked'
+            ? 'slack-stats-stacked.png'
+            : 'slack-stats.png',
       file: Buffer.from(pngData),
       title: reportLabel,
     })
