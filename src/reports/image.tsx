@@ -1,7 +1,6 @@
 import satori, { type Font as SatoriFont } from 'satori'
 import { Resvg, type ResvgRenderOptions } from '@resvg/resvg-js'
-import { ReactNode } from 'react'
-import { renderToString } from 'react-dom/server'
+import type { ReactNode } from 'react'
 
 type SvgTextToPathFonts = {
   [name: string]: {
@@ -57,13 +56,6 @@ export async function renderImage(
   height: number,
   fitTo?: ResvgRenderOptions['fitTo']
 ) {
-  console.time('html generation (debug only)')
-  const html = `<link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet"><div style="width: ${width}px; height: ${height}px; border: 1px solid black;">${renderToString(
-    jsx
-  )}</div><br><img style="border: 1px solid black;" src="./tmp-image-debug.svg" />`
-  await Bun.write('tmp-image-debug.html', html)
-  console.timeEnd('html generation (debug only)')
-
   console.time('svg generation')
   const svg = await satori(jsx, {
     width,

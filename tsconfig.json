@@ -1,6 +1,7 @@
 {
   "compilerOptions": {
     "jsx": "react-jsx",
+    "types": ["bun"],
 
     // Enable latest features
     "lib": ["ESNext"],

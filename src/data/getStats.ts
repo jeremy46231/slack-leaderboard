@@ -1,13 +1,13 @@
 import { Temporal } from 'temporal-polyfill'
 import { getAvailableDates, getRangeStats } from '../slackAPI/userAPI.ts'
 import { db } from './database.ts'
+import { getCachedUser, refreshCachedUser } from './users.ts'
 import {
   daysGenerator,
   jsDateToPlainDate,
   plainDateToString,
   runThreaded,
 } from '../helpers.ts'
-import { getUserProfile } from '../slackAPI/botAPI.ts'
 
 export type userDay = {
   user_id: string
@@ -49,13 +49,7 @@ export async function ensureUsersInDatabase(userIDs: string[]) {
   // Get user profiles for missing IDs and add them to the database
   let i = 0
   for (const missingID of missingIDs) {
-    const profile = await getUserProfile(missingID)
-
-    await db.user.upsert({
-      where: { user_id: profile.user_id },
-      create: profile,
-      update: profile,
-    })
+    await getCachedUser(missingID)
     console.log(`    Fetched new user ${++i}/${missingIDs.length}`)
   }
 
@@ -154,13 +148,7 @@ export async function updateStats() {
 
 export async function refreshProfile(id?: string) {
   if (!id) return
-  const profile = await getUserProfile(id)
-
-  await db.user.upsert({
-    where: { user_id: profile.user_id },
-    create: profile,
-    update: profile,
-  })
+  await refreshCachedUser(id)
 }
 
 export async function refreshOldUserProfiles(
@@ -191,11 +179,7 @@ export async function refreshOldUserProfiles(
 
   let i = 0
   for (const user of oldUsers) {
-    const profile = await getUserProfile(user.user_id)
-    await db.user.update({
-      where: { user_id: user.user_id },
-      data: profile,
-    })
+    await refreshCachedUser(user.user_id)
     console.log(`    Refreshed user ${++i}/${oldUsers.length}`)
   }
 

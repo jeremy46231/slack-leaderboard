@@ -21,3 +21,14 @@ export async function mostRecentStatDate() {
   }
   return jsDateToPlainDate(mostRecent.date)
 }
+
+const oldestStatRecord = await db.day.findFirst({
+  orderBy: { date: 'asc' },
+  select: { date: true },
+})
+
+if (!oldestStatRecord) {
+  throw new Error('No stats in the database')
+}
+
+export const oldestStatDate = jsDateToPlainDate(oldestStatRecord.date)

@@ -1,5 +1,6 @@
 import { Temporal } from 'temporal-polyfill'
 import { db, mostRecentStatDate, oldestStatDate } from '../data/database'
+import { getCachedUser } from '../data/users.ts'
 import { jsDateToPlainDate } from '../helpers'
 import { makeCalendar } from './calendar'
 import { renderImage } from './image'
@@ -45,31 +46,73 @@ function calculateStreak(
   }
 }
 
+function getUserLabel(user: {
+  display_name: string | null
+  real_name: string | null
+  user_id: string
+}) {
+  return user.display_name || user.real_name || user.user_id
+}
+
+function getUserInitials(user: {
+  display_name: string | null
+  real_name: string | null
+  user_id: string
+}) {
+  return getUserLabel(user)
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? '')
+    .join('') || '?'
+}
+
+async function inlineImage(url?: string | null) {
+  if (!url) return undefined
+
+  try {
+    const response = await fetch(url)
+    if (!response.ok) return undefined
+
+    const contentType =
+      response.headers.get('content-type') || 'application/octet-stream'
+    const bytes = new Uint8Array(await response.arrayBuffer())
+    const base64 = Buffer.from(bytes).toString('base64')
+
+    return `data:${contentType};base64,${base64}`
+  } catch {
+    return undefined
+  }
+}
+
 async function generateReport(userId: string) {
   console.time('data fetching')
-  const user = await db.user.findUnique({
-    where: { user_id: userId },
+  const [user, endDate] = await Promise.all([
+    getCachedUser(userId),
+    mostRecentStatDate(),
+  ])
+  const userWithDays = await db.user.findUnique({
+    where: { user_id: user.user_id },
     include: { UserDay: true },
   })
-  const endDate = await mostRecentStatDate()
   console.timeEnd('data fetching')
 
   console.time('data processing')
-  if (!user) {
+  if (!userWithDays) {
     throw new Error(`User with ID ${userId} not found`)
   }
-  const userDays =
-    user.UserDay.map((day) => ({
-      ...day,
-      date: jsDateToPlainDate(day.date),
-    })) || []
   const activityByDate = new Map<string, dayInfo>()
+  const userDays = userWithDays.UserDay.map((day) => ({
+    ...day,
+    date: jsDateToPlainDate(day.date),
+  }))
   for (const day of userDays) {
     activityByDate.set(day.date.toString(), day)
   }
 
   const { streakLength, streakStartDate, streakLongerThanMax } =
     calculateStreak(activityByDate, endDate)
+  const avatarSrc = await inlineImage(user.profile_picture)
 
   // let startDate = endDate.with({ month: 1, day: 1 })
   let calendarStartDate = endDate.subtract({ years: 1 }).add({ days: 1 })
@@ -87,7 +130,7 @@ async function generateReport(userId: string) {
     activityByDate,
     calendarStartDate,
     endDate,
-    800,
+    calendarWidth,
     150
   )
 
@@ -108,10 +151,37 @@ async function generateReport(userId: string) {
           flexDirection: 'row',
         }}
       >
-        <img
-          src={user.profile_picture ?? undefined}
-          style={{ width: 60, height: 60, borderRadius: '50%' }}
-        />
+        {avatarSrc ? (
+          <img
+            src={avatarSrc}
+            width={60}
+            height={60}
+            style={{
+              width: 60,
+              height: 60,
+              borderRadius: '50%',
+              objectFit: 'cover',
+            }}
+          />
+        ) : (
+          <div
+            style={{
+              width: 60,
+              height: 60,
+              borderRadius: '50%',
+              backgroundColor: '#dbeafe',
+              color: '#1d4ed8',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontFamily: 'Roboto',
+              fontSize: 24,
+              fontWeight: 700,
+            }}
+          >
+            {getUserInitials(user)}
+          </div>
+        )}
         <div
           style={{
             display: 'flex',
@@ -122,7 +192,7 @@ async function generateReport(userId: string) {
           }}
         >
           <span style={{ fontSize: 18, fontWeight: 'bold' }}>
-            {user.display_name || user.real_name}
+            {getUserLabel(user)}
           </span>
           <span style={{ fontSize: 14, color: '#555' }}>
             Current streak: {streakLongerThanMax ? 'at least ' : ''}
@@ -201,10 +271,14 @@ async function generateReport(userId: string) {
 }
 
 if (import.meta.main) {
-  const userId = 'U059VC0UDEU'
-  console.time('calendar generation')
-  const pngData = await generateReport(userId)
-  await Bun.write('./tmp-calendar.png', pngData)
-  console.timeEnd('calendar generation')
-  console.log(`Calendar saved to tmp-calendar.png for user ${userId}`)
+  const userId = 'U08PUHSMW4V'
+  try {
+    console.time('calendar generation')
+    const pngData = await generateReport(userId)
+    await Bun.write('./tmp-calendar.png', pngData)
+    console.timeEnd('calendar generation')
+    console.log(`Calendar saved to tmp-calendar.png for user ${userId}`)
+  } finally {
+    await db.$disconnect()
+  }
 }
