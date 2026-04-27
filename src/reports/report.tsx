@@ -424,10 +424,12 @@ export async function generateReport(
       </div>
     </div>
   )
-  // padding + calendar + padding
+  const sectionCount = chartElement === null ? 3 : 4
+  const containerPadding = 20
+  const containerGap = (sectionCount - 1) * 10
   const width = 10 + calendarWidth + 10
-  // padding + profile pic + padding + calendar + padding + footer + padding
-  const height = 10 + 60 + 10 + chartHeight + 10 + calendarHeight + 10 + 12 + 10
+  const height =
+    containerPadding + 60 + chartHeight + calendarHeight + 12 + containerGap
 
   console.timeEnd('data processing')
 
