@@ -1,8 +1,12 @@
 import type { GenericMessageEvent } from '@slack/types'
 import { getCachedUser } from './data/users.ts'
 import { app } from './slackAPI/app.ts'
-import { generateReport } from './reports/report.tsx'
-import { parseReportRequest } from './reports/request.ts'
+import {
+  generateReport,
+  generateReportCsv,
+  generateReportImage,
+} from './reports/report.tsx'
+import { parseReportRequest, type ReportMode } from './reports/request.ts'
 
 const BOT_USER_ID = 'U07SAUMSCAH'
 const REPORT_CHANNEL_ID = 'C09RY3A75JR'
@@ -27,6 +31,38 @@ function stripLeadingBotMention(text?: string) {
   }
 
   return trimmed.slice(mentionPrefix.length).trim()
+}
+
+function getReportSuffix(mode: ReportMode) {
+  if (mode === 'all') {
+    return ' (all time)'
+  }
+
+  if (mode === 'stacked') {
+    return ' (stacked)'
+  }
+
+  if (mode === 'csv') {
+    return ' (raw data)'
+  }
+
+  return ''
+}
+
+function getReportFilename(mode: ReportMode) {
+  if (mode === 'all') {
+    return 'slack-stats-all.png'
+  }
+
+  if (mode === 'stacked') {
+    return 'slack-stats-stacked.png'
+  }
+
+  if (mode === 'csv') {
+    return 'slack-stats-raw-data.csv'
+  }
+
+  return 'slack-stats.png'
 }
 
 async function handleReportRequest({
@@ -58,27 +94,35 @@ async function handleReportRequest({
   const targetUserId = requestedUserId ?? userId
 
   try {
-    const [pngData, user] = await Promise.all([
-      generateReport(targetUserId, mode),
-      getCachedUser(targetUserId),
-    ])
-    const userLabel = getUserLabel(user)
-    const suffix =
-      mode === 'all' ? ' (all time)' : mode === 'stacked' ? ' (stacked)' : ''
-    const reportLabel = `Slack stats for ${userLabel}${suffix}`
+    const suffix = getReportSuffix(mode)
     const requesterSuffix =
       targetUserId === userId ? '' : ` (requested by <@${userId}>)`
+
+    if (mode === 'csv') {
+      const { user, userDays } = await generateReport(targetUserId, mode)
+      const reportLabel = `Slack stats for ${getUserLabel(user)}${suffix}`
+
+      await client.filesUploadV2({
+        channel_id: responseChannelId,
+        thread_ts: responseThreadTs,
+        initial_comment: `<@${targetUserId}>${suffix}${requesterSuffix}`,
+        filename: getReportFilename(mode),
+        file: Buffer.from(generateReportCsv(userDays), 'utf8'),
+        title: reportLabel,
+      })
+
+      return
+    }
+
+    const user = await getCachedUser(targetUserId)
+    const pngData = await generateReportImage(targetUserId, mode)
+    const reportLabel = `Slack stats for ${getUserLabel(user)}${suffix}`
 
     await client.filesUploadV2({
       channel_id: responseChannelId,
       thread_ts: responseThreadTs,
       initial_comment: `<@${targetUserId}>${suffix}${requesterSuffix}`,
-      filename:
-        mode === 'all'
-          ? 'slack-stats-all.png'
-          : mode === 'stacked'
-            ? 'slack-stats-stacked.png'
-            : 'slack-stats.png',
+      filename: getReportFilename(mode),
       file: Buffer.from(pngData),
       title: reportLabel,
     })
@@ -94,7 +138,7 @@ async function handleReportRequest({
 
 app.event('app_mention', async ({ event, client, logger }) => {
   await handleReportRequest({
-    message: event as GenericMessageEvent,
+    message: event as unknown as GenericMessageEvent,
     client,
     logger,
     requestText: stripLeadingBotMention(event.text),

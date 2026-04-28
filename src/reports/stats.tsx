@@ -9,6 +9,17 @@ function formatNumber(value: number) {
   return value.toLocaleString('en-US')
 }
 
+function formatPlatformUsage(
+  platformStats: Array<{ label: string; firstLabel: string; value: number }>
+) {
+  const [firstPlatform, ...otherPlatforms] = platformStats
+  if (!firstPlatform) {
+    throw new Error('At least one platform stat is required')
+  }
+
+  return `${firstPlatform.value}% of active days ${firstPlatform.firstLabel}${otherPlatforms.length > 0 ? `, ${otherPlatforms.map((platform) => `${platform.value}% ${platform.label}`).join(', ')}` : ''}`
+}
+
 export function makeStatsWidget(userDays: dayInfo[]) {
   const daysOnline = userDays.filter((day) => day.is_active).length
   const daysReacted = userDays.filter((day) => day.reactions_added > 0).length
@@ -22,7 +33,6 @@ export function makeStatsWidget(userDays: dayInfo[]) {
     (sum, day) => sum + day.messages_posted_in_channel,
     0
   )
-  const totalPrivateMessages = Math.max(0, totalMessages - totalPublicMessages)
   const totalReactions = userDays.reduce(
     (sum, day) => sum + day.reactions_added,
     0
@@ -33,9 +43,21 @@ export function makeStatsWidget(userDays: dayInfo[]) {
   const iosDays = userDays.filter((day) => day.is_ios).length
   const androidDays = userDays.filter((day) => day.is_android).length
   const platformStats = [
-    { label: 'desktop app', value: percent(desktopDays, activeDays) },
-    { label: 'iOS', value: percent(iosDays, activeDays) },
-    { label: 'Android', value: percent(androidDays, activeDays) },
+    {
+      label: 'desktop app',
+      firstLabel: 'used the desktop app',
+      value: percent(desktopDays, activeDays),
+    },
+    {
+      label: 'iOS',
+      firstLabel: 'used iOS',
+      value: percent(iosDays, activeDays),
+    },
+    {
+      label: 'Android',
+      firstLabel: 'used Android',
+      value: percent(androidDays, activeDays),
+    },
   ].sort((a, b) => b.value - a.value)
   const dayActivityStats = [
     { label: 'days reacted', value: daysReacted },
@@ -44,10 +66,8 @@ export function makeStatsWidget(userDays: dayInfo[]) {
 
   const lines = [
     `${formatNumber(daysOnline)} days online, ${formatNumber(dayActivityStats[0]!.value)} ${dayActivityStats[0]!.label}, ${formatNumber(dayActivityStats[1]!.value)} ${dayActivityStats[1]!.label}`,
-    `${formatNumber(totalMessages)} total messages (${percent(totalPrivateMessages, totalMessages)}% private), ${formatNumber(totalReactions)} reactions`,
-    platformStats
-      .map((platform) => `${platform.value}% ${platform.label}`)
-      .join(', '),
+    `${formatNumber(totalMessages)} total messages (${formatNumber(totalPublicMessages)} in channel), ${formatNumber(totalReactions)} reactions`,
+    formatPlatformUsage(platformStats),
   ]
 
   return (

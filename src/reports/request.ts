@@ -1,4 +1,4 @@
-export type ReportMode = 'default' | 'all' | 'stacked'
+export type ReportMode = 'default' | 'all' | 'stacked' | 'csv'
 
 export type ParsedReportRequest = {
   requestedUserId?: string
@@ -31,9 +31,15 @@ function parseMode(text: string): ReportMode {
     return 'stacked'
   }
 
-  throw new Error(
-    'Unsupported report mode. Use default, "all", "all time", or "stacked".'
-  )
+  if (
+    normalized === 'csv' ||
+    normalized === 'raw data' ||
+    normalized === 'data'
+  ) {
+    return 'csv'
+  }
+
+  return 'default'
 }
 
 export function parseReportRequest(text?: string): ParsedReportRequest {

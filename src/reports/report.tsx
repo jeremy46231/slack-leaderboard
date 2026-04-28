@@ -21,6 +21,12 @@ export type dayInfo = {
   reactions_added: number
 }
 
+export type ReportData = {
+  endDate: Temporal.PlainDate
+  user: Awaited<ReturnType<typeof getCachedUser>>
+  userDays: dayInfo[]
+}
+
 function calculateStreak(
   activityByDate: Map<string, dayInfo>,
   endDate: Temporal.PlainDate
@@ -171,7 +177,7 @@ function shouldShowMissingDataWarning(userDays: dayInfo[]) {
 
 export async function generateReport(
   userId: string,
-  mode: ReportMode = 'default'
+  _mode: ReportMode = 'default'
 ) {
   console.time('data fetching')
   const [user, endDate] = await Promise.all([
@@ -184,15 +190,55 @@ export async function generateReport(
   })
   console.timeEnd('data fetching')
 
-  console.time('data processing')
   if (!userWithDays) {
     throw new Error(`User with ID ${userId} not found`)
   }
+
+  return {
+    user,
+    endDate,
+    userDays: userWithDays.UserDay.map((day) => ({
+      ...day,
+      date: jsDateToPlainDate(day.date),
+    })),
+  }
+}
+
+export function generateReportCsv(userDays: dayInfo[]) {
+  const headers = [
+    'date',
+    'is_active',
+    'is_desktop',
+    'is_ios',
+    'is_android',
+    'messages_posted',
+    'reactions_added',
+  ]
+  const rows = [...userDays]
+    .sort((a, b) => Temporal.PlainDate.compare(a.date, b.date))
+    .map((day) =>
+      [
+        day.date.toString(),
+        day.is_active ? 't' : 'f',
+        day.is_desktop ? 't' : 'f',
+        day.is_ios ? 't' : 'f',
+        day.is_android ? 't' : 'f',
+        day.messages_posted,
+        day.reactions_added,
+      ].join(',')
+    )
+
+  return `${headers.join(',')}\n${rows.join('\n')}`
+}
+
+export async function generateReportImage(
+  userId: string,
+  mode: ReportMode = 'default'
+) {
+  const { user, endDate, userDays } = await generateReport(userId, mode)
+
+  console.time('data processing')
   const activityByDate = new Map<string, dayInfo>()
-  const userDays = userWithDays.UserDay.map((day) => ({
-    ...day,
-    date: jsDateToPlainDate(day.date),
-  }))
   for (const day of userDays) {
     activityByDate.set(day.date.toString(), day)
   }
@@ -443,7 +489,7 @@ if (import.meta.main) {
   const requestText = Bun.argv.slice(2).join(' ').trim()
   if (!requestText) {
     throw new Error(
-      'Usage: bun src/reports/report.tsx <user-id|@mention> [all|"all time"|stacked]'
+      'Usage: bun src/reports/report.tsx <user-id|@mention> [all|"all time"|stacked|csv|"raw data"|data]'
     )
   }
   const { requestedUserId, mode } = parseReportRequest(requestText)
@@ -451,13 +497,23 @@ if (import.meta.main) {
     throw new Error('CLI input must start with a Slack user ID or mention.')
   }
   try {
-    console.time('calendar generation')
-    const pngData = await generateReport(requestedUserId, mode)
-    await Bun.write('./tmp-calendar.png', pngData)
-    console.timeEnd('calendar generation')
-    console.log(
-      `Calendar saved to tmp-calendar.png for user ${requestedUserId}${mode === 'default' ? '' : ` (${mode})`}`
-    )
+    if (mode === 'csv') {
+      console.time('csv generation')
+      const { userDays } = await generateReport(requestedUserId, mode)
+      await Bun.write('./tmp-calendar.csv', generateReportCsv(userDays))
+      console.timeEnd('csv generation')
+      console.log(
+        `Raw data saved to tmp-calendar.csv for user ${requestedUserId}`
+      )
+    } else {
+      console.time('calendar generation')
+      const pngData = await generateReportImage(requestedUserId, mode)
+      await Bun.write('./tmp-calendar.png', pngData)
+      console.timeEnd('calendar generation')
+      console.log(
+        `Calendar saved to tmp-calendar.png for user ${requestedUserId}${mode === 'default' ? '' : ` (${mode})`}`
+      )
+    }
   } finally {
     await db.$disconnect()
   }
